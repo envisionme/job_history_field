@@ -1,0 +1,373 @@
+<?php
+
+drupal_add_css(drupal_get_path('module', 'jobhistoryfield').'/jobhistoryfield.css');
+drupal_add_js(drupal_get_path('module', 'jobhistoryfield').'/jobhistoryfield.js');
+
+//Global variables for this module
+$taxonomy_array = array('test');
+
+function my_in_array( $needle, $haystack ) 
+{        
+	if (is_array($haystack))
+	{
+		return in_array($needle, $haystack);
+	} 
+  else // array is undefined 
+  {
+    return false;
+  }
+}
+
+// $Id$
+
+//==========================================//
+// DEFINE THE FIELD
+//==========================================//
+
+/**
+* Implementation of hook_field_info().
+*/
+function jobhistoryfield_field_info() {
+  return array(
+    //~ The machine name of the field.
+    'jobhistoryfield' => array(
+      //~ The human-readable label of the field that will be seen in the Manage fields screen.
+      'label'         => t('Job History'),
+      //~ A description of what type of data the field stores.
+      'description'   => t('Store data about a worked for company.'),
+    ),
+  );
+}
+
+/**
+* Implementation of hook_field_settings().
+*/
+function jobhistoryfield_field_settings($op, $field) {
+  switch ($op) {
+    case 'database columns':
+    //~ Define the colums that needs to be created in the database for storing the field data
+      $columns['company'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      $columns['position'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      $columns['industry'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      $columns['job_type'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      $columns['fromdate'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      $columns['todate'] = array(
+        'type'      => 'varchar',
+        'length'    => 50,
+        'not null'  => FALSE,
+        'sortable'  => TRUE,
+        'views'     => TRUE,
+      );
+      return $columns;
+  }
+}
+
+/**
+* Implementation of hook_field().
+*/
+function jobhistoryfield_field($op, &$node, $field, &$items, $teaser, $page) {
+  switch ($op) {
+    case 'validate':
+      foreach ($items as $delta => $item) {
+        if (!empty($item['company']) && empty($item['position'])) {
+          form_set_error($item['position'], 'Position cannot be empty. Please provide a position for each job.');
+          }
+        }
+          
+    case 'presave':
+      foreach ($items as $delta => $value) {
+        _jobhistory_process($items[$delta], $delta, $field, $node);
+      }
+    break;
+  }
+}
+
+function _jobhistory_process(&$item, $delta = 0, $field, $node) {
+  
+  // Handle taxonomy for Company subfield
+  $company_tax_terms = taxonomy_get_term_by_name($item['company']);
+  
+  // Make sure that the term you are about to add to the node belongs to the correct vocabulary
+  if (empty($company_tax_terms)) {
+    $newterm = array('vid' => 22, 'name' => $item['company']);
+    taxonomy_save_term($newterm);
+  }
+  $company_tax_terms = taxonomy_get_term_by_name($item['company']);
+  $node->taxonomy[22][] = $company_tax_terms[0]->tid;
+  
+  
+  // Handle taxonomy for Position subfield
+  $position_tax_terms = taxonomy_get_term_by_name($item['position']);
+  
+  if (empty($position_tax_terms)) {
+    $newterm = array('vid' => 10, 'name' => $item['position']);
+    taxonomy_save_term($newterm);
+  }
+  $position_tax_terms = taxonomy_get_term_by_name($item['position']);
+  $node->taxonomy[10][] = $position_tax_terms[0]->tid;
+  
+  $node_taxonomy_terms = taxonomy_node_get_terms($node);   
+
+  //Decrease by 1 beacuase of "--Please Select--" in dropdown
+  $item['industry'] = $item['industry']-1;
+
+  //Handle taxonomy for Industry subfield
+  $node->taxonomy[19][] = $item['industry'];
+  
+  
+  //Handle taxonomy for Job Type subfield
+  $node->taxonomy[25][] = $item['job_type'];
+  
+  //Set current job
+  if ($item['currentjob'] == 1) {
+    $item['todate'] = 'Current';
+  }
+ 
+}
+
+/**
+* Implementation of hook_content_is_empty().
+*/
+function jobhistoryfield_content_is_empty($item, $field) {
+  if (empty($item['company'])) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+//==========================================//
+// DEFINING A FORMATTER
+//==========================================//
+
+/**
+* Implementation of hook_theme().
+*/
+function jobhistoryfield_theme() {
+  return array(
+    // Themes for the formatters.
+    'jobhistoryfield_formatter_default' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+}
+
+/**
+* Implementation of hook_field_formatter_info().
+*/
+function jobhistoryfield_field_formatter_info() {
+  return array(
+    // The machine name of the formatter.
+    'default' => array(
+      // The human-readable label shown on the Display fields screen.
+      'label' => t('Default'),
+      // An array of the field types this formatter can be used on.
+      'field types' => array('jobhistoryfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+  );
+}
+
+/**
+* Theme function for 'default' companyfield formatter.
+*/
+function theme_jobhistoryfield_formatter_default($element) {
+  $output  = '<div class="institution-field">'.$element['#item']['company'].'</div>';
+  $output .= '<div class="achievement-field">'.$element['#item']['position'].'</div>';
+  $output .= '<div class="achievement-field">'.$element['#item']['industry'].'</div>';
+  
+  $fromdate = strtotime($element['#item']['fromdate']);
+  $fromdate = format_date($fromdate, $type='custom', $format='M Y');
+  if($element['#item']['todate'] == 'Current')
+    $todate = 'Current';
+  else {
+    $todate = strtotime($element['#item']['todate']);
+    $todate = format_date($todate, $type='custom', $format='M Y');
+  }
+  
+  $output .= $fromdate.' - '.$todate;
+  
+  return $output;
+}
+
+//==========================================//
+// DEFINING A WIDGET
+//==========================================//
+
+/**
+* Implementation of hook_widget_info().
+*/
+function jobhistoryfield_widget_info() {
+  return array(
+    // The machine name of the widget.
+    'jobhistoryfield_widget' => array(
+      // The human-readable label of the field that will be seen in the Manage fields screen.
+      'label' => t('Job history widget'),
+      // An array of the field types this widget can be used with.
+      'field types' => array('jobhistoryfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array(
+        'default value' => CONTENT_CALLBACK_DEFAULT,
+      ),
+    ),
+  );
+}
+
+/**
+* Implementation of hook_widget().
+*/
+
+function jobhistoryfield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+        
+    
+    
+    $vid = 22; //Company vocabulary id
+    
+    $element['company'] = array(
+      '#type'               => 'textfield', 
+      '#title'              => t('Company'), 
+      '#maxlength'          => 50, 
+      '#autocomplete_path'  => 'taxonomy/autocomplete/'.$vid, 
+      '#default_value'      => $value = isset($items[$delta]['company']) ? $items[$delta]['company'] : NULL, 
+      '#weight'             => -1,
+    );
+    
+    $vid = 10; //Position vocabulary id
+    
+    $element['position'] = array(
+      '#type'               => 'textfield', 
+      '#title'              => t('Position held'), 
+      '#maxlength'          => 50, 
+      '#autocomplete_path'  => 'taxonomy/autocomplete/'.$vid, 
+      '#default_value'      => $value = isset($items[$delta]['position']) ? $items[$delta]['position'] : NULL,
+      '#weight'             => 0,
+    );
+    
+    $vid = 19; //Industry Vocabulary
+    
+    //Load the vocabulary to populate the dropdown select
+    $vocabulary = taxonomy_get_tree($vid);
+    
+    //Create the array to hold possible dropdown values
+    $industries = array();
+    $industries[] = '--Please Select Industry--';
+    
+    //Populate the industries array_merge
+    foreach ($vocabulary as $term) {
+      $industries[] = $term->name;
+    }
+    
+    $element['industry'] = array(
+      '#type'               => 'select', 
+      '#title'              => t('Industry'), 
+      '#maxlength'          => 50, 
+      '#options'            => $industries,
+      '#default_value'      => $value = isset($items[$delta]['industry']) ? $items[$delta]['industry']+1 : NULL, 
+      '#weight'             => 1,
+      '#prefix'               => '<div class="field-industry">',
+      '#suffix'               => '</div>',
+    );
+    
+    $vid = 25; //Job Type
+    
+    //Load the vocabulary to populate the dropdown select
+    $vocabulary = taxonomy_get_tree($vid);
+    
+    //Create the array to hold possible dropdown values
+    $job_types = array();
+    
+    //Populate the industries array_merge
+    foreach ($vocabulary as $term) {
+      $job_types[] = $term->name;
+    }
+    
+    $element['job_type'] = array(
+      '#type'               => 'select', 
+      '#title'              => t('Job Type'), 
+      '#maxlength'          => 50, 
+      '#options'            => $job_types,
+      '#default_value'      => $value = isset($items[$delta]['job_type']) ? $items[$delta]['job_type'] : 1, 
+      '#weight'             => 2,
+      '#prefix'               => '<div class="field-job-type">',
+      '#suffix'               => '</div>',
+    );
+    
+    if ($items[$delta]['todate'] == 'Current')
+      $def_val = 1;
+    else $def_val = 0;
+    
+    $element['currentjob'] = array(
+      '#type'           => 'checkbox',
+      '#title'          => t('I am currently employed here'),
+      '#default_value'  => $def_val,
+      '#weight'         => 3,
+      '#prefix'               => '<div class="field-current-job">',
+      '#suffix'               => '</div>',
+    );
+    
+    $element['fromdate'] = array(
+      '#type'                 => 'date_select',
+      '#title'                => 'From',
+      '#date_format'          => 'm-Y',
+      '#date_label_position'  => 'within',
+      '#date_year_range'      => '-50:0',
+      '#default_value'        => isset($items[$delta]['fromdate']) ? $items[$delta]['fromdate'] : date('Y', time()),
+      '#prefix'               => '<div class="field-from-date">',
+      '#suffix'               => '</div>',
+      '#weight'               => 4,
+    );
+    
+    $element['todate'] = array(
+      '#type'                 => 'date_select',
+      '#title'                => 'To',
+      '#date_format'          => 'm-Y',
+      '#date_label_position'  => 'within',
+      '#date_year_range'      => '-50:0',
+      '#default_value'        => isset($items[$delta]['todate']) ? $items[$delta]['todate'] : date('Y', time()),
+      '#prefix'               => '<div class="field-to-date">',
+      '#suffix'               => '</div>',
+      '#weight'               => 5,
+    );
+    
+ 
+  // Used so that hook_field('validate') knows where to
+  // flag an error in deeply nested forms.
+  if (empty($form['#parents'])) {
+    $form['#parents'] = array();
+  }
+  $element['_error_element'] = array(
+    '#type' => 'company',
+    '#value' => implode('][', array_merge($form['#parents'], array('company'))),
+  );
+ 
+  return $element;
+}

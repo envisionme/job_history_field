@@ -1,0 +1,6 @@
+; $Id$
+name = Job History Field
+description = Defines Job History field with required subfields.
+dependencies[] = content
+package = NoJoShmo - Custom Modules
+core = 6.x

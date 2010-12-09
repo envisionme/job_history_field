@@ -1,0 +1,45 @@
+<?php
+
+/**
+* @file
+* Implementation of hook_install().
+*/
+function jobhistoryfield_install() {
+  drupal_load('module', 'content');
+  content_notify('install', 'jobhistoryfield');
+}
+
+/**
+* Implementation of hook_uninstall().
+**/
+function jobhistoryfield_uninstall() {
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'jobhistoryfield');
+}
+
+/**
+* Implementation of hook_enable().
+*/
+function jobhistoryfield_enable() {
+  drupal_load('module', 'content');
+  content_notify('enable', 'jobhistoryfield');
+}
+
+/**
+* Implementation of hook_disable().
+*
+* Notify content module when this module is disabled.
+*/
+function jobhistoryfield_disable() {
+  drupal_load('module', 'content');
+  content_notify('disable', 'jobhistoryfield');
+}
+
+/**
+* Implementation of hook_update().
+*/
+function jobhistoryfield_update_6100() {
+  $ret[] = update_sql("ALTER TABLE {content_field_app_job_history} ADD field_app_job_history_industry varchar(50) default 'NULL' NULL");
+}
+
+?>
